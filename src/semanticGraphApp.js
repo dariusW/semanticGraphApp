@@ -36,6 +36,54 @@ var SemanticGraphApp = (function (){
 			}
 			return box;
 		}
+		tools.parseXml = function(src){
+			if (window.DOMParser){
+				parser=new DOMParser();
+				xmlDoc=parser.parseFromString(src,"text/xml");
+				return xmlDoc;
+			}
+			else{
+				xmlDoc=new ActiveXObject("Microsoft.XMLDOM");
+				xmlDoc.async=false;
+				xmlDoc.loadXML(src); 
+				return xmlDoc;
+			} 
+		}
+		tools.dropFileHandler = function (e,action) {
+			e = e || window.event; // get window.event if e argument missing (in IE)   
+			if (e.preventDefault) { e.preventDefault(); } // stops the browser from redirecting off to the image.
+			var dt = e.dataTransfer;
+			var files = dt.files;
+			for (var i=0; i<files.length; i++) {
+				var file = files[i];
+				if(file.type == "image/svg+xml"){
+					var readerImg = new FileReader();
+					var loadendImg = function(e) {
+						var store = {};
+						var bin = this.result; 
+						store.bin = bin;
+						store.name = file.name;
+						
+						var readerSrc = new FileReader();
+						var loadendSrc = function(e) {
+							var bin = this.result; 
+							store.src = bin;
+							store.xml = tools.parseXml(bin);
+							//actions goes here
+							action(store);
+						}
+						addEventHandler(readerSrc, 'loadend', loadendSrc);
+						readerSrc.readAsText(file)
+						
+					}
+					addEventHandler(readerImg, 'loadend', loadendImg);
+					readerImg.readAsDataURL(file)
+				} else {
+					alert("invalid MIME type");
+				}
+			}
+		  return false;
+		}
 		
 		//CREATE WORKSPACE
 		var body = document.getElementsByTagName("body")[0];
@@ -150,6 +198,7 @@ var SemanticGraphApp = (function (){
 					var graph;
 					try{
 						graph = eval("localStorage."+props);
+						graph.xml = tools.parseXml(graph);
 						graphs.push(eval('('+graph+')'));
 					}catch(e){
 						alert();
@@ -159,6 +208,7 @@ var SemanticGraphApp = (function (){
 					var graph;
 					try{
 						graph = eval("localStorage."+props);
+						graph.xml = tools.parseXml(graph);
 						nodes.push(eval('('+graph+')'));
 					}catch(e){
 						alert();
@@ -168,6 +218,7 @@ var SemanticGraphApp = (function (){
 					var graph;
 					try{
 						graph = eval("localStorage."+props);
+						graph.xml = tools.parseXml(graph);
 						edges.push(eval('('+graph+')'));
 					}catch(e){
 						alert();
@@ -227,41 +278,6 @@ var SemanticGraphApp = (function (){
 			context.fillRect(0,0,canvas.width,canvas.height);
 		}
 		
-		tools.dropFileHandler = function (e,action) {
-			e = e || window.event; // get window.event if e argument missing (in IE)   
-			if (e.preventDefault) { e.preventDefault(); } // stops the browser from redirecting off to the image.
-			var dt = e.dataTransfer;
-			var files = dt.files;
-			for (var i=0; i<files.length; i++) {
-				var file = files[i];
-				if(file.type == "image/svg+xml"){
-					var readerImg = new FileReader();
-					var loadendImg = function(e) {
-						var store = {};
-						var bin = this.result; 
-						store.bin = bin;
-						store.name = file.name;
-						
-						var readerSrc = new FileReader();
-						var loadendSrc = function(e) {
-							var bin = this.result; 
-							store.src = bin;
-							
-							//actions goes here
-							action(store);
-						}
-						addEventHandler(readerSrc, 'loadend', loadendSrc);
-						readerSrc.readAsText(file)
-						
-					}
-					addEventHandler(readerImg, 'loadend', loadendImg);
-					readerImg.readAsDataURL(file)
-				} else {
-					alert("invalid MIME type");
-				}
-			}
-		  return false;
-		}
 		
 		nodesBox.drop = function (e) {
 			tools.dropFileHandler(e, function(item){
