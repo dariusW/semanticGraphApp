@@ -1,0 +1,120 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title>Semantic Graph App</title>
+	</head>
+	<body >
+	
+		<div>
+			<div>
+				<div id="t1">
+					<div>
+						<div>
+							<span >
+								TEST1
+							</span>
+							<span>
+								TEST2
+							</span>
+						</div>
+						<div>
+							<span>
+								TEST3
+							</span>			
+						</div>
+					</div>
+				</div>
+			</div>
+			
+			<div>
+				<div id="t2">
+					<span>
+						MATCH TEST
+					</span>			
+				</div>
+			</div>
+		</div>
+
+
+
+
+
+		<script type="text/javascript">
+			var table1=document.getElementById('t1');
+			var table2=document.getElementById('t2');
+			
+			var findInTreeStart = function(tree,pattern){
+				
+				var compare = function(node1, node2){
+					return node1.nodeName.toUpperCase() === node2.nodeName.toUpperCase();
+				}
+				
+				var findInTree = function(tree1, tree2, results){
+					
+					var children = tree1.children;
+					for(var idx = 0; idx < children.length; idx++){
+						var child = children[idx];
+						var result = findInTree(child, tree2,results);
+						results.push(result);
+					}
+					
+					var stats = {treeNodes:0, patternNodes:0,matched:0};
+					stats = compareTree(tree1, tree2, stats);			
+					return stats;
+				}
+				
+				var compareTree = function(tree1, tree2, stats){
+					var myNode = tree1;
+					var cmpNode = tree2;
+					while(cmpNode != null){
+						stats.patternNodes += 1;
+						if(myNode != null){
+							stats.treeNodes += 1;
+							var compResult = compare(myNode, cmpNode);
+							if(compResult){
+								stats.matched += 1;
+							}
+						
+							var cmpNodeChildren = cmpNode.children;
+							var myNodeChildren = myNode.children;
+							
+							var cmpNodeChild = null;
+							var myNodeChild = null;
+							
+							if(cmpNodeChildren != null){
+								for(var i=0; i<cmpNodeChildren.length; i++){
+									cmpNodeChild = cmpNodeChildren[i];
+									if(myNodeChildren != null && i < myNodeChildren.length){
+										myNodeChild = myNodeChildren[i]
+									}
+									stats = compareTree(myNodeChild, cmpNodeChild, stats);
+								}
+							}
+							
+							var cmpNodeChildrenSize = cmpNodeChildren != null ? cmpNodeChildren.length : 0;
+							var myNodeChildrenSize = myNodeChildren != null ? myNodeChildren.length : 0;
+							if(myNodeChildrenSize > cmpNodeChildrenSize){
+								stats.treeNodes += myNodeChildrenSize - cmpNodeChildrenSize;
+							}
+						
+						
+							myNode = myNode.nextElementSibling;
+						}
+						cmpNode = cmpNode.nextElementSibling;
+					}
+					stats.tree = tree1;
+					stats.pattern = tree2;
+					return stats;
+				}
+						
+				var results = new Array();
+				var result = findInTree(tree,pattern, results);
+				results.push(result);
+				return results;
+			}
+			
+			findInTreeStart(table1,table2);
+		
+		</script>
+	</body>
+</html>

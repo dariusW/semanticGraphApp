@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="shortcut icon" href="dist/favicon.ico">
+	<link rel="icon" href="dist/favicon.ico" type="image/x-icon">
+
+    <title>Semantic Graph Cache App</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="dist/css/bootstrap.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="dist/css/custom.css" rel="stylesheet">
+
+    <!-- Just for debugging purposes. Don't actually copy this line! -->
+    <!--[if lt IE 9]><script src="../../docs-assets/js/ie8-responsive-file-warning.js"></script><![endif]-->
+
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+    <![endif]-->
+  </head>
+
+  <body onload="new SemanticGraphApp();">
+
+    <div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="#">Semantic Graph Cache App</a>
+        </div>
+        <div class="collapse navbar-collapse">
+          <ul class="nav navbar-nav">
+          </ul>
+        </div><!--/.nav-collapse -->
+      </div>
+    </div>
+
+    <div class="container">
+
+      <div class="starter-template">
+        
+		<div class="row">
+			  <div class="col-md-4">
+				<div class="panel panel-default">
+					<div class="panel-heading">
+						Graphs
+						<div class="upload_box">
+							<input type="file" class="file_upload" id="addGraph"/>
+							<button type="button" class="btn btn-success" id="addGraphB">Add</button>
+						</div>
+					</div>
+					<div class="panel-body">
+						<div class="graph-container content-left" id="graph-box">
+							&nbsp;
+						</div>
+					</div>
+				</div>
+				<div class="panel panel-default">
+					<div class="panel-heading">
+						Nodes
+						<div class="upload_box">
+							<input type="file" class="file_upload" id="addNode"/>
+							<button type="button" class="btn btn-success" id="addNodeB">Add</button>
+						</div>
+					</div>
+					<div class="panel-body">
+						<div class="graph-container content-left" id="node-box">
+							&nbsp;
+						</div>
+					</div>
+				</div>
+				<div class="panel panel-default">
+					<div class="panel-heading">
+						Edges
+						<div class="upload_box">
+							<input type="file" class="file_upload" id="addEdge"/>
+							<button type="button" class="btn btn-success" id="addEdgeB">Add</button>
+						</div>
+					</div>
+					<div class="panel-body">
+						<div class="graph-container content-left" id="edge-box">
+							&nbsp;
+						</div>
+					</div>
+				</div>
+			  
+			  
+			  </div>
+			  <div class="col-md-8">
+				<div class="row">
+					<div class="col-md-12">
+						<div class="panel panel-default">
+							<div class="panel-heading">
+								Workspace <span id="currentGraph"></span>
+							</div>
+							<div class="panel-body">
+								<div class="canvas-graph" id="canvas-box">
+									Drop graph here!
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="row">
+					<div class="col-md-8">
+						<div class="panel panel-default">
+							<div class="panel-heading">Parameters</div>
+							<div class="panel-body form-horizontal">
+								<div class="graph-container form-group" id="params-box">
+									
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="col-md-4">
+						<div class="panel panel-default">
+							<div class="panel-heading">Workspace</div>
+							<div class="panel-body">
+								<div class="graph-container noscroll" id="workspace-box">
+								
+									<button type="button" id="save" class="btn btn-primary">Save</button>
+
+									<button type="button" id="clear" class="btn btn-warning">Clear</button>
+									
+									
+									  <div class="checkbox" style="padding-top: 20px">
+										<label>
+										  <input type="checkbox" autocomplete="off" id="advanceSerch"> Advance search
+										</label>
+									  </div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		
+      </div>
+
+    </div><!-- /.container -->
+
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
+    <script src="dist/js/bootstrap.min.js"></script>
+	<script src="src/semanticGraphApp.js"></script>
+  </body>
+</html>

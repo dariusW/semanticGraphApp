@@ -9,7 +9,6 @@ var SemanticGraphApp = (function (){
 			}
 		}
 		
-		//private methods
 		var addEventHandler = function(obj, evt, handler) {
 			if(obj.addEventListener) {
 				obj.addEventListener(evt, handler, false);
@@ -36,6 +35,7 @@ var SemanticGraphApp = (function (){
 			}
 			return box;
 		}
+		//parser DOM
 		tools.parseXml = function(src){
 			if (window.DOMParser){
 				parser=new DOMParser();
@@ -49,11 +49,9 @@ var SemanticGraphApp = (function (){
 				return xmlDoc;
 			} 
 		}
-		tools.dropFileHandler = function (e,action) {
-			e = e || window.event; // get window.event if e argument missing (in IE)   
-			if (e.preventDefault) { e.preventDefault(); } // stops the browser from redirecting off to the image.
-			var dt = e.dataTransfer;
-			var files = dt.files;
+		
+		//load external file
+		tools.loadFile = function (files,action){
 			for (var i=0; i<files.length; i++) {
 				var file = files[i];
 				if(file.type == "image/svg+xml"){
@@ -63,6 +61,8 @@ var SemanticGraphApp = (function (){
 						var bin = this.result; 
 						store.bin = bin;
 						store.name = file.name;
+						store.alert = false;
+						store.threshold = 0.8;
 						
 						var readerSrc = new FileReader();
 						var loadendSrc = function(e) {
@@ -82,70 +82,352 @@ var SemanticGraphApp = (function (){
 					alert("invalid MIME type");
 				}
 			}
+		}
+		
+		//load file from drop event
+		tools.dropFileHandler = function (e,action) {
+			e = e || window.event; // get window.event if e argument missing (in IE)   
+			if (e.preventDefault) { e.preventDefault(); } // stops the browser from redirecting off to the image.
+			var dt = e.dataTransfer;
+			var files = dt.files;
+			tools.loadFile(files,action);
 		  return false;
+		}
+		//load file from input
+		tools.addFileHandler = function(id,action){
+			var button = document.getElementById(id+"B");
+			var fileUploader = document.getElementById(id);
+			fileUploader.onchange = function(e){
+				tools.loadFile(this.files,action);
+			}
 		}
 		
 		//CREATE WORKSPACE
 		var body = document.getElementsByTagName("body")[0];
-		body.setAttribute("style", "padding: 0; margin: 0");
-		var container = document.getElementById(defProps.div);
-		var leftMenuContainer = tools.appendSimpleBox(container, "PALETTE");
-		leftMenuContainer.style.borderRight = "3px solid #dedede";
-		leftMenuContainer.style.cssFloat = "left";
-		leftMenuContainer.style.background = "#dedede";
-		leftMenuContainer.style.overflow="auto";
-		leftMenuContainer.height = "100%";
-		
-		var nodesBox = tools.appendSimpleBox(leftMenuContainer, "Nodes");
-		nodesBox.style.borderTop = "2px solid #dedede";
-		nodesBox.style.borderBottom = "2px solid #dedede";
-		
-		var edgesBox = tools.appendSimpleBox(leftMenuContainer, "Edges");
-		edgesBox.style.borderBottom = "2px solid #dedede";
-		
-		var listBox =tools.appendSimpleBox(leftMenuContainer, "Saved graphs");
-		listBox.style.borderBottom = "2px solid #dedede";
-		
-		var leftMenuList = document.createElement("ul");
-		leftMenuList.style.listStyle="none";
-		listBox.appendChild(leftMenuList);
-		leftMenuContainer.appendChild(listBox);
-		
-		var canvasContainer = document.createElement("div");
-		canvasContainer.style.width = "70%";
-		canvasContainer.style.cssFloat = "left";
-		container.appendChild(canvasContainer);
-		
+		var container = document.getElementById(defProps.div);		
+		var nodesBox = document.getElementById('node-box');		
+		var edgesBox = document.getElementById('edge-box');		
+		var listBox = document.getElementById('graph-box');		
+		var canvasContainer = document.getElementById("canvas-box");		
 		var canvas = document.createElement("canvas");
-		canvasContainer.appendChild(canvas);
+		//canvasContainer.appendChild(canvas);
+		var workspaceMenuContainer = document.getElementById("workspace-box");		
+		var paramsMenuContainer = document.getElementById("params-box");		
+		var saveButton = document.getElementById("save");
+		var advanceSerch = document.getElementById("advanceSerch");
 		
-		var bottomMenuConrainer = tools.appendSimpleBox(container);
-		bottomMenuConrainer.style.width = "70%";
-		bottomMenuConrainer.style.background = "#dedede";
-		bottomMenuConrainer.style.cssFloat = "left";
-		
-		var saveButton = document.createElement("input");
-		saveButton.setAttribute("type","button");
-		saveButton.setAttribute("value","save");
 		saveButton.onclick = function(){
 			storageControl.save();
-		}
-		bottomMenuConrainer.appendChild(saveButton);
-		
-		var clearButton = document.createElement("input");
+		}		
+		var clearButton = document.getElementById("clear");
 		clearButton.onclick=function(){
 			storageControl.clear();
 		}
-		clearButton.setAttribute("type","button");
-		clearButton.setAttribute("value","clear");
-		bottomMenuConrainer.appendChild(clearButton);
-		
-		var graphs = new Array();
-		graphs.draw = function(graph){
-			context.clear();
-			context.drawGraph(graph);		
+		var useAdvanceSearch = false;
+		advanceSerch.onclick = function(e){
+			useAdvanceSearch = !useAdvanceSearch;
 		}
-		graphs.drawListItem = function(graph){
+		//tree compare agoritm
+		var findInTreeStart = function(tree,pattern,th){	
+			//skiped nodes
+			var skipNode = new Array("defs");
+			skipNode.contains = function(match){
+				for(var i; i < skipNode.length; i++){
+					var node = skipNode[i];
+					if(node == match){
+						return true;
+					}
+				}
+				return false;
+			}
+			//compare nodes
+			var compare = function(node1, node2){
+				if(!useAdvanceSearch){
+					return node1.nodeName.toUpperCase() === node2.nodeName.toUpperCase();
+				} else {
+					//alert("advance compare");
+					var maxpoints = 25;
+					var points = 0;
+					if(node1.nodeName.toUpperCase() === node2.nodeName.toUpperCase()){
+						points += 20;
+					}
+					var n1attr = node1.attributes;
+					var n2attr = node2.attributes;
+					n2attr.contains = function(value){
+						for(var i; i<n2attr.length; i++){
+							var v = n2attr[i];
+							if(value.nodeName == v.nodeName){
+								points += 2;
+								if(value.nodeValue == v.nodeValue){
+									points += 1;
+								}
+							}
+						}
+					}
+					if(n1attr.length == n2attr.length){
+						points += 5;
+					}
+					for(var i; i<n1attr.length; i++){
+						maxpoints += 3;
+						n2attr.contains(n1attr[i]);
+					}
+					if(th>1){
+						alert("Invalid treshold for item. Must be less or eq 1");
+					}
+					return (th<(points/maxpoints));					
+					
+					/*
+					for(atr in node1){
+						maxpoints += 1;
+						var n1 = eval("node1."+atr);
+						var n2 = eval("node2."+atr);
+						if(n1 == n2){
+							points += 1;
+						}
+					}
+					*/
+					//alert(maxpoints+" "+points);
+					return false;
+				}
+			}
+			
+			var findInTree = function(tree1, tree2, results){				
+				var children = tree1.children;
+				for(var idx = 0; idx < children.length; idx++){
+					var child = children[idx];
+					if(skipNode.contains(child) && useAdvanceSearch){
+						continue;
+					}
+					var result = findInTree(child, tree2,results);
+					results.push(result);
+				}				
+				var stats = {treeNodes:0, patternNodes:0,matched:0};
+				stats = compareTree(tree1, tree2, stats);			
+				return stats;
+			}
+				
+			//compare level
+			var compareTree = function(tree1, tree2, stats){
+				var myNode = tree1;
+				var cmpNode = tree2;
+				while(cmpNode != null){
+				
+					if(skipNode.contains(cmpNode) && useAdvanceSearch){
+						continue;
+					} 
+					stats.patternNodes += 1;
+					if(myNode != null){
+						if(skipNode.contains(myNode) && useAdvanceSearch){
+							while(skipNode.contains(myNode)){
+								myNode = myNode.nextElementSibling;
+							}
+						} 
+						stats.treeNodes += 1;
+						var compResult = compare(myNode, cmpNode);
+						if(compResult){
+							stats.matched += 1;
+						}					
+						var cmpNodeChildren = cmpNode.children;
+						var myNodeChildren = myNode.children;
+						
+						var cmpNodeChild = null;
+						var myNodeChild = null;
+						
+						if(cmpNodeChildren != null){
+							for(var i=0; i<cmpNodeChildren.length; i++){
+								cmpNodeChild = cmpNodeChildren[i];
+								if(myNodeChildren != null && i < myNodeChildren.length){
+									myNodeChild = myNodeChildren[i]
+								}
+								stats = compareTree(myNodeChild, cmpNodeChild, stats);
+							}
+						}
+						
+						var cmpNodeChildrenSize = cmpNodeChildren != null ? cmpNodeChildren.length : 0;
+						var myNodeChildrenSize = myNodeChildren != null ? myNodeChildren.length : 0;
+						if(myNodeChildrenSize > cmpNodeChildrenSize){
+							stats.treeNodes += myNodeChildrenSize - cmpNodeChildrenSize;
+						}
+						
+						
+						myNode = myNode.nextElementSibling;
+					}
+					cmpNode = cmpNode.nextElementSibling;
+				}
+				stats.tree = tree1;
+				stats.pattern = tree2;
+				return stats;
+			}
+				
+			var results = new Array();
+			var result = findInTree(tree,pattern, results);
+			results.push(result);
+			return results;
+		}
+		//params
+		var graphs = new Array();
+		tools.printParams = function(item){
+			paramsMenuContainer.innerHTML = "";
+			tools.printParam("Name", item.name, function(){
+				item.name = this.value;
+			});
+			tools.printParam("Threshold", item.threshold, function(){
+				item.threshold = parseFloat(this.value);
+			});
+			tools.printParamChbox("Alert on match", item.alert, function(){
+				item.alert=(!item.alert);
+			});
+		}
+		tools.printParam = function(attr, val, callback){
+			var row = document.createElement("div");
+			row.className = "row";
+			var label = document.createElement("label");
+			label.setAttribute("for","attr");
+			label.className = "col-sm-2 control-label";
+			label.innerHTML = attr;
+			var div = document.createElement("div");
+			div.className = "col-sm-10";
+			div.style.marginBottom = "10px";
+			var input = document.createElement("input");
+			input.setAttribute("type", "text");
+			input.className = "form-control";
+			input.value = val;
+			input.onchange = callback;
+			div.appendChild(input);
+			row.appendChild(label);
+			row.appendChild(div);
+			paramsMenuContainer.appendChild(row);
+			
+		}
+		tools.printParamChbox = function(attr, val, callback){
+			var row = document.createElement("div");
+			row.className = "row";
+			var div = document.createElement("div");
+			div.className = "checkbox col-sm-12";		
+			var label = document.createElement("label");
+			div.appendChild(label);
+			var input = document.createElement("input");
+			input.setAttribute("type","checkbox");
+			if(val){
+				input.setAttribute("checked","checked");
+			}
+			label.onclick = callback;
+			label.appendChild(input);			
+			label.innerHTML = label.innerHTML + attr;			
+			row.appendChild(div);
+			paramsMenuContainer.appendChild(row);
+			
+		}
+		//graph on click action
+		graphs.draw = function(graph){
+			graph.xml = tools.parseXml(graph.src);
+			graph.allNodes = 0;
+			graph.matchedNodes = 0;
+			graph.find = function(dom,pattern,th){
+				var found = new Array();
+				var results = findInTreeStart(dom, pattern.firstElementChild, th);	
+				for(var i = 0; i < results.length; i++){
+					var item = results[i];
+					if(pattern!=null){
+						if(item.matched != 0 || item.patternNodes != 0 || item.treeNodes != 0){
+							if(item.matched==item.patternNodes && item.patternNodes==item.treeNodes){
+								found.push({pattern: item.pattern, tree: item.tree});
+							}
+						}
+					}
+				}
+				return found;
+			}
+			var callbackFunction = function(found, node){
+				var tree = found.tree;
+				var pattern = node;
+				var oldOnClick = f.tree.onclick;
+				f.tree.onclick = function(e, stopClear){
+					var p = pattern;
+					p.display.onclick();
+					
+					if(stopClear == undefined){
+						for(var i = 0; i<currentlyFound.length;i++){
+							var c = currentlyFound[i];
+							c.className = "item_pic";
+						}
+						currentlyFound = new Array();
+					}
+					if(oldOnClick != null){
+						oldOnClick(e, true);
+					}
+					currentlyFound.push(node.display);
+					node.display.className = "item_pic found";
+					
+					if(p.alert == true){
+						alert(pattern.name);
+					}
+				}
+			}
+			var nodeIdx = 0;
+			for(nodeIdx; nodeIdx < nodes.length; nodeIdx++){
+				var node = nodes[nodeIdx];
+				node.xml = tools.parseXml(node.src);
+				var found = graph.find(graph.xml.firstChild, node.xml.firstChild,node.threshold);
+				//alert(node.name +": "+found.length);
+				for(var i = 0; i < found.length; i++){
+					var f = found[i];
+					callbackFunction(f, node);
+				}				
+			}
+			var edgeIdx = 0;
+			for(edgeIdx; edgeIdx < edges.length; edgeIdx++){
+				var edge = edges[edgeIdx];
+				edge.xml = tools.parseXml(edge.src);
+				var found = graph.find(graph.xml.firstChild, edge.xml.firstChild,edge.threshold);
+				//alert(node.name +": "+found.length);
+				for(var i = 0; i < found.length; i++){
+					var f = found[i];
+					callbackFunction(f, edge);
+				}		
+			}
+			
+			context.clear();
+			var title = document.getElementById("currentGraph");
+			title.innerHTML = graph.name;
+			context.drawGraph(graph);
+		}
+		tools.draw = function(item, box,callback){
+			var div = document.createElement("div");
+			div.className = "item_pic";
+			var i = document.createElement("img");
+			i.src = item.bin;
+			i.style.width="60px";
+			i.width=60;	
+			div.appendChild(i);	
+			
+			div.onclick = function(){
+				for(var i = 0; i<currentlyFound.length;i++){
+					var c = currentlyFound[i];
+					c.className = "item_pic";
+				}
+				currentlyFound = new Array();
+				if(null != currentlySelected){
+					currentlySelected.className = "item_pic";
+				}
+				currentlySelected = this;
+				currentlySelected.className = "item_pic active";
+				if(null != callback){
+					callback();
+				}
+				tools.printParams(item);
+			}
+			item.display = div;
+			box.appendChild(div);	
+			
+		}
+		graphs.drawListItem = function(item){
+			var callback = function(){
+				graphs.draw(item);
+			}	
+			tools.draw(item,listBox,callback);
+
+			/*
 			if(graph==undefined)
 				return;
 			var li = document.createElement("li");
@@ -157,17 +439,15 @@ var SemanticGraphApp = (function (){
 			else 
 				li.innerHTML = "NONAME";
 			leftMenuList.appendChild(li);
+			*/
 		}
 		graphs.drawAllListItems = function(){
 			for(var i = 0; i<this.length; i++)
 				this.drawListItem(this[i]);
 		}
 		var edges = new Array();
-		edges.draw = function(edge){
-			var img = document.createElement("img");
-			img.src = edge.bin;
-			img.style.width = "50%";
-			edgesBox.appendChild(img);
+		edges.draw = function(item){
+			tools.draw(item,edgesBox);
 		}
 		edges.drawAll = function(){
 			for(var i = 0; i<this.length; i++)
@@ -176,10 +456,7 @@ var SemanticGraphApp = (function (){
 		}
 		var nodes = new Array();
 		nodes.draw = function(item){
-			var img = document.createElement("img");
-			img.src = item.bin;
-			img.style.width = "50%";
-			nodesBox.appendChild(img);		
+			tools.draw(item,nodesBox);	
 		}
 		nodes.drawAll = function(){
 			for(var i = 0; i<this.length; i++)
@@ -231,7 +508,10 @@ var SemanticGraphApp = (function (){
 			graphs.drawAllListItems();
 		}
 		storageControl.clear = function(){
-			localStorage.clear();
+			if(confirm("Do you realy whant to do that?")){
+				localStorage.clear();
+				location.reload();
+			}
 		}
 		storageControl.save = function(){
 			localStorage.clear();
@@ -249,7 +529,8 @@ var SemanticGraphApp = (function (){
 				var node = nodes[i];
 				var stringNode = JSON.stringify(node);
 				eval('localStorage.node'+i+'=stringNode');
-			}				
+			}	
+			alert("Done!");
 		}
 		storageControl.load();
 		
@@ -259,10 +540,13 @@ var SemanticGraphApp = (function (){
 			context = canvas.getContext('2d');
 		}
 		context.drawGraph = function(graph){
-			var img = document.createElement("img"); 
-			img.src = graph.bin;
-			context.clear();
-			context.drawImage(img,0,0);		
+			var img = document.createElement("object"); 
+			img.appendChild(graph.xml.firstElementChild);
+			img.type = "image/svg+xml";
+			//context.clear();
+			canvasContainer.innerHTML="";
+			canvasContainer.appendChild(img);
+			//context.drawImage(img,0,0);		
 		}
 		context.drawDropInfo = function(){
 			context.font="50px Arial";
@@ -274,6 +558,8 @@ var SemanticGraphApp = (function (){
 			context.strokeRect((canvas.width-320)/2,(canvas.height-110)/2,320,80);
 		};
 		context.clear = function(){
+			var title = document.getElementById("currentGraph");
+			title.innerHTML = "";
 			context.fillStyle = "#fff";
 			context.fillRect(0,0,canvas.width,canvas.height);
 		}
@@ -301,6 +587,20 @@ var SemanticGraphApp = (function (){
 			});
 			
 		}
+		var addGraph = tools.addFileHandler("addGraph", function(item){
+				graphs.push(item);
+				graphs.draw(item);
+				graphs.drawListItem(item);
+		});
+		var addNode = tools.addFileHandler("addNode", function(item){
+				nodes.push(item);
+				nodes.draw(item);
+		});
+		var addEdge = tools.addFileHandler("addEdge", function(item){
+				edges.push(item);
+				edges.draw(item);
+			
+		});
 		
 		canvasContainer.dropCancelBubble = function(e) {
 			if (e.preventDefault){
@@ -327,22 +627,24 @@ var SemanticGraphApp = (function (){
 		}
 		
 		var onResize = function(){
-			var workspaceHeight = window.innerHeight;
-			var workspaseWidth = window.innerWidth;
-			leftMenuContainer.style.height = workspaceHeight+"px";
-			leftMenuContainer.style.width = (workspaseWidth*0.3-3)+"px";
-			canvasContainer.style.height = (Math.ceil(workspaceHeight*0.7))+"px";
-			canvas.height = canvasContainer.clientHeight;
-			canvas.width = canvasContainer.clientWidth;
-			bottomMenuConrainer.style.height = (workspaceHeight-Math.ceil(workspaceHeight*0.7))+"px";
+			//var workspaceHeight = window.innerHeight;
+			//var workspaseWidth = window.innerWidth;
+			//leftMenuContainer.style.height = workspaceHeight+"px";
+			//leftMenuContainer.style.width = (workspaseWidth*0.3-3)+"px";
+			//canvasContainer.style.height = (Math.ceil(workspaceHeight*0.7))+"px";
+			//canvas.height = canvasContainer.clientHeight;
+			//canvas.width = canvasContainer.clientWidth;
+			//bottomMenuConrainer.style.height = (workspaceHeight-Math.ceil(workspaceHeight*0.7))+"px";
 			
-			context.drawDropInfo();
+			//context.drawDropInfo();
 		}
 		onResize();
 		window.onresize=onResize;
 		
 		context.drawDropInfo();
 		
+		var currentlySelected = null;
+		var currentlyFound = new Array();
 	}
 	return loader;
 })();
