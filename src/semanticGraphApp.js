@@ -36,18 +36,21 @@ var SemanticGraphApp = (function (){
 			return box;
 		}
 		//parser DOM
-		tools.parseXml = function(src){
+		tools.parseXml = function(src, prop){
+			var xmlDoc;
 			if (window.DOMParser){
 				parser=new DOMParser();
 				xmlDoc=parser.parseFromString(src,"text/xml");
-				return xmlDoc;
 			}
 			else{
 				xmlDoc=new ActiveXObject("Microsoft.XMLDOM");
 				xmlDoc.async=false;
 				xmlDoc.loadXML(src); 
-				return xmlDoc;
 			} 
+			if(prop === true){
+				tools.attachClickListeners(xmlDoc);
+			}
+			return xmlDoc;
 		}
 		
 		//load external file
@@ -101,6 +104,146 @@ var SemanticGraphApp = (function (){
 				tools.loadFile(this.files,action);
 			}
 		}
+		//switch source content
+		tools.switchSource = function(src){
+			if(sourceContainer){
+				sourceArea.value=src;
+				sourceArea.innerHTML=src;
+				tools.validateByAjax(src);
+			}
+		}
+		tools.toggle = function(){
+			if(canvasContainer.style.display=="none"){
+				containerSwitch.innerHTML = "[SOURCE]";
+				sourceContainer.style.display = "none";
+				canvasContainer.style.display = "block";
+			} else {
+				containerSwitch.innerHTML = "[VIEW]";
+				canvasContainer.style.display = "none";
+				sourceContainer.style.display = "block";			
+			}
+		}
+		tools.reloadValidator = function(src, clean){
+			if(validatorWindow != null && clean !== true){
+				validatorWindow.close();
+				validatorWindow = window.open('about:blank','validatorvindow','width=800,height=600,toolbar=no,location=no,directories=no,status=yes,menubar=yes,scrollbars=yes,copyhistory=yes,resizable=yes');
+			}
+			if(validatorWindow){
+				var validatorForm = "\
+							LOADING...\
+							<form method='post' enctype='multipart/form-data' action='http://validator.w3.org/check' style='display:none'>\
+							<input type='hidden' name='charset' value='utf-8'/>\
+							<input type='hidden' name='doctype' value='SVG 1.1'/>\
+							<input type='hidden' name='group' value='0'/>\
+							<input type='hidden' name='user-agent' value='W3C_Validator/1.3 http://validator.w3.org/services'/>\
+							<textarea cols='80' rows='12' name='fragment' id='fragment'>"+src+"</textarea>		\
+							</form>\
+							<script type='text/javascript'>\
+							document.forms[0].submit();\
+							</script>\
+							"
+				validatorWindow.document.write(validatorForm);
+			}
+		}
+		window.onunload = function(){
+			if(validatorWindow)validatorWindow.close();
+		}
+		tools.toggleValidator = function(){
+			if(validatorWindow == null){
+				validatorSwich.innerHTML = "[HIDE VALIDATOR]";
+				
+				validatorWindow = window.open('about:blank','validatorvindow','width=800,height=600,toolbar=no,location=no,directories=no,status=yes,menubar=yes,scrollbars=yes,copyhistory=yes,resizable=yes');
+				
+				tools.reloadValidator(context.currentGraph, true);
+				
+			} else {
+				validatorSwich.innerHTML = "[SHOW VALIDATOR]";
+				
+				validatorWindow.close();
+				
+				validatorWindow = null;
+			}
+		}
+		var quickValid = document.getElementById('quickValid');
+		tools.printQuickValid = function(a){
+			if(a.valid){
+				quickValid.style.color = "green";
+				quickValid.innerHTML = a.warn + " warnings"
+			} else {
+				quickValid.style.color = "red";
+				quickValid.innerHTML = a.error + " errors " + a.warn + " warnings"			
+			}
+		
+		}
+		tools.validateByAjax = function(src){
+		
+			
+			var xmlhttp;
+			if (window.XMLHttpRequest){// code for IE7+, Firefox, Chrome, Opera, Safari
+			  xmlhttp=new XMLHttpRequest();
+			} else{// code for IE6, IE5
+			  xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+			}
+			xmlhttp.onreadystatechange=function(){
+				if (xmlhttp.readyState==4 && xmlhttp.status==200){
+					var validatorResponse = JSON.parse(xmlhttp.responseText);
+					if(validatorResponse.error == undefined){
+						var a = {};
+						a.valid = false;
+						for(var vName in validatorResponse){
+							vVal = validatorResponse[vName];
+							
+							if(vName == "X-W3C-Validator-Status"){
+								if(vVal == "Valid"){
+									a.valid = true;
+								}
+							}
+							if(vName == "X-W3C-Validator-Errors"){
+								a.error = vVal;
+							}
+							if(vName == "X-W3C-Validator-Warnings"){
+								a.warn = vVal;
+							}
+							
+						}
+						tools.printQuickValid(a);
+					}
+				}
+			}
+			var params = "f="+src;
+			var url = "http://localhost/semanticGraphApp/web.php?"+params;
+			//var data = new FormData();
+			//for(p in params){
+			//	data.append(p,params[p]);
+			//}
+			//paramsStr = paramsStr.substr(0,paramsStr.length-1);
+			xmlhttp.open("GET", url, true);
+			xmlhttp.setRequestHeader("Content-type","false");
+			//xmlhttp.setRequestHeader ("ENCTYPE", "multipart/form-data");
+			//xmlhttp.setRequestHeader("Content-length", paramsStr.length);
+			xmlhttp.setRequestHeader("Connection", "keep-alive");
+			xmlhttp.setRequestHeader("Cache-Control", "max-age=0");
+			
+			xmlhttp.send(params);
+			
+			/*
+			$.ajax({
+				url: url,
+				data: data,
+				cache: false,
+				contentType: false,
+				processData: false,
+				isLocal: false,
+				crossDomain: true,
+				type: 'POST',
+				complete: function(xhr){
+	//				alert(xhr.status);
+				}
+			}).done(function(data, statusText, xhr){
+				//alert(xhr.status);
+			});
+			*/
+		}
 		
 		//CREATE WORKSPACE
 		var body = document.getElementsByTagName("body")[0];
@@ -108,7 +251,18 @@ var SemanticGraphApp = (function (){
 		var nodesBox = document.getElementById('node-box');		
 		var edgesBox = document.getElementById('edge-box');		
 		var listBox = document.getElementById('graph-box');		
-		var canvasContainer = document.getElementById("canvas-box");		
+		var canvasContainer = document.getElementById("canvas-box");
+		var sourceContainer = document.getElementById("source-box");	
+		var sourceArea = document.getElementById("source");
+		var containerSwitch = document.getElementById("workspace_sw");
+		if(containerSwitch){
+			containerSwitch.onclick = tools.toggle;
+		}
+		var validatorSwich = document.getElementById("validator_sw");
+		if(validatorSwich){
+			validatorSwich.onclick = tools.toggleValidator;
+		}
+		var validatorWindow = null;
 		var canvas = document.createElement("canvas");
 		//canvasContainer.appendChild(canvas);
 		var workspaceMenuContainer = document.getElementById("workspace-box");		
@@ -278,24 +432,122 @@ var SemanticGraphApp = (function (){
 				item.alert=(!item.alert);
 			});
 		}
-		tools.printParam = function(attr, val, callback){
+		tools.removeNode = function(deletecallback){
+			var row = document.createElement("div");
+			row.className = "row";
+			
+			var b = document.createElement("button");
+			b.setAttribute("type","button");
+			b.className = "btn btn-danger";
+			b.innerHTML = "REMOVE NODE";
+			b.onclick = function(e){
+				if(deletecallback(e)){
+					paramsMenuContainer.innerHTML = "";
+				}
+			}				
+				
+			var div = document.createElement("div");
+			div.className = "col-sm-12";
+			div.style.marginBottom = "10px";
+			div.appendChild(b);
+			
+			
+			row.appendChild(div);
+			paramsMenuContainer.appendChild(row);
+		}
+		tools.printParamAdder = function(callback){
+			var row = document.createElement("div");
+			row.className = "row";
+			var attrNameInput = document.createElement("input");
+			attrNameInput.setAttribute("type", "text");
+			attrNameInput.className = "form-control";
+			attrNameInput.setAttribute("id", "newAttrName");
+			var attrValueInput = document.createElement("input");
+			attrValueInput.setAttribute("type", "text");
+			attrValueInput.className = "form-control";
+			attrValueInput.setAttribute("id", "newAttrValue");
+			
+			var callbackPack = function(event){
+				callback(attrNameInput, attrValueInput, event, this);
+			}
+			attrNameInput.onchange = callbackPack;
+			attrValueInput.onchange = callbackPack;
+			
+			attrNameInput.onchange = callback;
+			var div1 = document.createElement("div");
+			var div2 = document.createElement("div");
+			div1.className = "col-sm-5";
+			div1.style.marginBottom = "10px";
+			div1.appendChild(attrNameInput);
+			div2.className = "col-sm-7";
+			div2.style.marginBottom = "10px";
+			div2.appendChild(attrValueInput);
+			
+			
+			row.appendChild(div1);
+			row.appendChild(div2);
+			paramsMenuContainer.appendChild(row);
+		}
+		tools.innerModifier = function(val, callback){
 			var row = document.createElement("div");
 			row.className = "row";
 			var label = document.createElement("label");
 			label.setAttribute("for","attr");
-			label.className = "col-sm-2 control-label";
+			label.className = "col-sm-3 control-label";
+			label.innerHTML = "CONTENT";
+			var div = document.createElement("div");
+			div.className = "col-sm-7";
+			div.style.marginBottom = "10px";
+			var input = document.createElement("input");
+			input.setAttribute("type", "text");
+			input.className = "form-control";
+			input.value = val;
+			input.onchange = function(e){				
+				callback(input.value,e);
+			}
+			div.appendChild(input);
+			row.appendChild(label);
+			row.appendChild(div);
+			paramsMenuContainer.appendChild(row);
+		}
+		tools.printParam = function(attr, val, callback, deletable, deletecallback){
+			var row = document.createElement("div");
+			row.className = "row";
+			var label = document.createElement("label");
+			label.setAttribute("for","attr");
+			label.className = "col-sm-3 control-label";
 			label.innerHTML = attr;
 			var div = document.createElement("div");
-			div.className = "col-sm-10";
+			div.className = "col-sm-7";
 			div.style.marginBottom = "10px";
 			var input = document.createElement("input");
 			input.setAttribute("type", "text");
 			input.className = "form-control";
 			input.value = val;
 			input.onchange = callback;
+			input.name = attr;
 			div.appendChild(input);
 			row.appendChild(label);
 			row.appendChild(div);
+			
+			if(deletable===true){
+				//<button type="button" class="btn btn-danger">X</button>
+				var delDiv = document.createElement("div");
+				delDiv.className = "col-sm-2";
+				delDiv.style.marginBottom = "10px";
+				var b = document.createElement("button");
+				b.setAttribute("type","button");
+				b.className = "btn btn-danger";
+				b.innerHTML = "X";
+				b.onclick = function(e){
+					if(deletecallback(attr,e)){
+						paramsMenuContainer.removeChild(row);
+					}
+				}				
+				delDiv.appendChild(b);
+				row.appendChild(delDiv);
+								
+			}
 			paramsMenuContainer.appendChild(row);
 			
 		}
@@ -392,10 +644,23 @@ var SemanticGraphApp = (function (){
 			title.innerHTML = graph.name;
 			context.drawGraph(graph);
 		}
+		tools.idGen = function(){
+			var text = "";
+			var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+			for( var i=0; i < 10; i++ ){
+				text += possible.charAt(Math.floor(Math.random() * possible.length));
+			}
+			return text;
+		}
 		tools.draw = function(item, box,callback){
 			var div = document.createElement("div");
 			div.className = "item_pic";
+			var iid = tools.idGen();
+			div.setAttribute("id", iid);
 			var i = document.createElement("img");
+			i.setAttribute("id", iid);
+			item.id = iid;
 			i.src = item.bin;
 			i.style.width="60px";
 			i.width=60;	
@@ -419,8 +684,186 @@ var SemanticGraphApp = (function (){
 			}
 			item.display = div;
 			box.appendChild(div);	
+			div.setAttribute("draggable","true");
+			div.ondragstart =tools.dragToCanvas;
 			
 		}
+		tools.dragToCanvas = function(event){
+			event.dataTransfer.setData("Text",event.target.id);
+		}	
+		tools.dragOverCanvas = function(event){
+			event.preventDefault();
+		}
+		tools.dropOnCanvas = function(event){
+			event.preventDefault();
+			var id=event.dataTransfer.getData("Text");
+			var a = tools.findById(id);
+			if(a){
+				a.src;
+				context.currentGraphData;
+				//TODO: start from here 
+				
+				var content  = a.xml.firstChild.children;
+				for(var ii = 0; ii < content.length; ii++){
+					var child = tools.parseXml(content[ii].outerHTML);	
+					context.currentGraphData.xml = tools.parseXml(context.currentGraphData.src, true);
+					context.currentGraphData.xml.firstChild.appendChild(child.firstChild);
+					context.currentGraphData.src = context.currentGraphData.xml.firstChild.outerHTML;
+				}
+				context.drawGraph(context.currentGraphData);
+			}
+			
+			
+		}
+		var modifieNode;
+		var modifieNodeAttr;
+		tools.attachClickListeners = function(xml){
+			var digDeeper = function(children){
+				for(var i=0;i<children.length;i++){
+					digDeeper(children[i].children);
+					var oldFunc = children[i].onclick;
+					children[i].onclick = function (event){
+						if( typeof  oldFunc == "function"){
+							oldFunc(event);
+						}
+						paramsMenuContainer.innerHTML = "";
+						modifieNode = this;
+						modifieNodeAttr = this.attributes;
+						tools.removeNode(function(e){
+							if(confirm("Do you whant to remove entire node?")){
+								var root = modifieNode;
+								while(root.parentNode){
+									root = root.parentNode;
+									if(root.nodeName=="svg"){
+										break;
+									}
+								}
+								modifieNode.parentNode.removeChild(modifieNode);
+								context.currentGraphData.src = root.outerHTML;
+								context.currentGraphData.xml = tools.parseXml(context.currentGraphData.src);
+								context.drawGraph(context.currentGraphData);
+								return true;
+							}
+							return false;
+							
+						});
+						tools.innerModifier(modifieNode.innerHTML, function(val,e){
+							modifieNode.innerHTML = val;
+							var root = modifieNode;
+							while(root.parentNode){
+								root = root.parentNode;
+								if(root.nodeName=="svg"){
+									break;
+								}
+							}
+							context.currentGraphData.src = root.outerHTML;
+							context.currentGraphData.xml = tools.parseXml(context.currentGraphData.src);
+							context.drawGraph(context.currentGraphData);
+						});
+						tools.printParamAdder(function(name,value,event,item){
+							if(name && name.value && value && value.value){
+								modifieNode.setAttribute(name.value, value.value);
+								var root = modifieNode;
+								while(root.parentNode){
+									root = root.parentNode;
+									if(root.nodeName=="svg"){
+										break;
+									}
+								}
+								context.currentGraphData.src = root.outerHTML;
+								context.currentGraphData.xml = tools.parseXml(context.currentGraphData.src);
+								context.drawGraph(context.currentGraphData);
+								tools.printParam(name.value, value.value, function(e){
+									for(var j = 0; j < modifieNodeAttr.length; j++){
+										if(modifieNodeAttr[j].name ==  this.name){
+											modifieNodeAttr[j].value = this.value;
+											
+											
+											var root = modifieNode;
+											while(root.parentNode){
+												root = root.parentNode;
+												if(root.nodeName=="svg"){
+													break;
+												}
+											}
+											context.currentGraphData.src = root.outerHTML;
+											context.currentGraphData.xml = tools.parseXml(context.currentGraphData.src);
+											context.drawGraph(context.currentGraphData);
+											return;
+										}
+									}		
+								}, true, function(name,e){
+									if(confirm("Really remove attribute "+name+"?")){
+										modifieNode.removeAttribute(name);
+										var root = modifieNode;
+										while(root.parentNode){
+											root = root.parentNode;
+											if(root.nodeName=="svg"){
+												break;
+											}
+										}
+										context.currentGraphData.src = root.outerHTML;
+										context.currentGraphData.xml = tools.parseXml(context.currentGraphData.src);
+										context.drawGraph(context.currentGraphData);
+										return true;
+									}
+									return false;
+								});
+								name.value = "";
+								value.value= "";
+							}
+						});
+						for(var ii=0; ii< modifieNodeAttr.length;ii++){
+							var atr = modifieNodeAttr[ii];
+							var atrName = atr.name;
+							var atrVal = atr.value;
+							tools.printParam(atrName, atrVal, function(e){							
+								for(var j = 0; j < modifieNodeAttr.length; j++){
+									if(modifieNodeAttr[j].name ==  this.name){
+										modifieNodeAttr[j].value = this.value;
+										
+										
+										var root = modifieNode;
+										while(root.parentNode){
+											root = root.parentNode;
+											if(root.nodeName=="svg"){
+												break;
+											}
+										}
+										context.currentGraphData.src = root.outerHTML;
+										context.currentGraphData.xml = tools.parseXml(context.currentGraphData.src);
+										context.drawGraph(context.currentGraphData);
+										return;
+									}
+								}
+							}, true, function(name, e){
+								if(confirm("Really remove attribute "+name+"?")){
+									modifieNode.removeAttribute(name);
+									var root = modifieNode;
+									while(root.parentNode){
+										root = root.parentNode;
+										if(root.nodeName=="svg"){
+											break;
+										}
+									}
+									context.currentGraphData.src = root.outerHTML;
+									context.currentGraphData.xml = tools.parseXml(context.currentGraphData.src);
+									context.drawGraph(context.currentGraphData);
+									return true;
+								}
+								return false;
+							});
+							
+						}
+					}
+				}
+			}
+			var root = xml.firstChild;
+			digDeeper(root.children);
+		}
+		canvasContainer.ondragover = tools.dragOverCanvas;
+		canvasContainer.ondrop = tools.dropOnCanvas;
+		
 		graphs.drawListItem = function(item){
 			var callback = function(){
 				graphs.draw(item);
@@ -454,6 +897,14 @@ var SemanticGraphApp = (function (){
 				this.draw(this[i]);
 		
 		}
+		edges.find = function(id){
+			for(var i = 0; i<this.length; i++){
+				var edge = edges[i];
+				if(id == edge.id){
+					return edge;
+				}
+			}
+		}
 		var nodes = new Array();
 		nodes.draw = function(item){
 			tools.draw(item,nodesBox);	
@@ -462,6 +913,22 @@ var SemanticGraphApp = (function (){
 			for(var i = 0; i<this.length; i++)
 				this.draw(this[i]);
 		
+		}
+		nodes.find = function(id){
+			for(var i = 0; i<this.length; i++){
+				var node = nodes[i];
+				if(id == node.id){
+					return node;
+				}
+			}
+		}
+		
+		tools.findById = function(id){
+			var result = edges.find(id);
+			if(result == undefined || result == null){
+				result = nodes.find(id);
+			}
+			return result;
 		}
 		
 		var storageControl = {};
@@ -539,13 +1006,23 @@ var SemanticGraphApp = (function (){
 		if(undefined != canvas.getContext){
 			context = canvas.getContext('2d');
 		}
+		context.currentGraph = "";
+		context.currentGraphData = null;
 		context.drawGraph = function(graph){
+			graph.xml = tools.parseXml(graph.src,true);
 			var img = document.createElement("object"); 
 			img.appendChild(graph.xml.firstElementChild);
 			img.type = "image/svg+xml";
 			//context.clear();
 			canvasContainer.innerHTML="";
 			canvasContainer.appendChild(img);
+			
+			//store current gra[ph reload validator
+			context.currentGraph = graph.src;
+			tools.reloadValidator(context.currentGraph);
+			context.currentGraphData = graph;
+			tools.switchSource(graph.src);
+			
 			//context.drawImage(img,0,0);		
 		}
 		context.drawDropInfo = function(){
@@ -563,6 +1040,9 @@ var SemanticGraphApp = (function (){
 			context.fillStyle = "#fff";
 			context.fillRect(0,0,canvas.width,canvas.height);
 		}
+		
+		//switch view
+		
 		
 		
 		nodesBox.drop = function (e) {

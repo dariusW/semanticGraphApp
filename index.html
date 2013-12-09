@@ -8,7 +8,7 @@
     <meta name="author" content="">
     <link rel="shortcut icon" href="dist/favicon.ico">
 	<link rel="icon" href="dist/favicon.ico" type="image/x-icon">
-
+	
     <title>Semantic Graph Cache App</title>
 
     <!-- Bootstrap core CSS -->
@@ -103,11 +103,14 @@
 					<div class="col-md-12">
 						<div class="panel panel-default">
 							<div class="panel-heading">
-								Workspace <span id="currentGraph"></span>
+								Workspace <span id="currentGraph"></span> <span id="workspace_sw" class="switch">[SOURCE]</span> <span id="validator_sw" class="switch">[SHOW VALIDATOR]</span> <span id="quickValid"> </span>
 							</div>
-							<div class="panel-body">
+							<div class="panel-body abs">
 								<div class="canvas-graph" id="canvas-box">
 									Drop graph here!
+								</div>
+								<div class="canvas-graph" id="source-box">
+									<textarea id="source" rows="12" autocomplete="off" readonly="readonly"></textarea>
 								</div>
 							</div>
 						</div>
@@ -119,7 +122,6 @@
 							<div class="panel-heading">Parameters</div>
 							<div class="panel-body form-horizontal">
 								<div class="graph-container form-group" id="params-box">
-									
 								</div>
 							</div>
 						</div>
