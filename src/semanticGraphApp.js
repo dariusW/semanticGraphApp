@@ -212,37 +212,13 @@ var SemanticGraphApp = (function (){
 			}
 			var params = "f="+src;
 			var url = "http://localhost/semanticGraphApp/web.php?"+params;
-			//var data = new FormData();
-			//for(p in params){
-			//	data.append(p,params[p]);
-			//}
-			//paramsStr = paramsStr.substr(0,paramsStr.length-1);
-			xmlhttp.open("GET", url, true);
-			xmlhttp.setRequestHeader("Content-type","false");
-			//xmlhttp.setRequestHeader ("ENCTYPE", "multipart/form-data");
-			//xmlhttp.setRequestHeader("Content-length", paramsStr.length);
-			xmlhttp.setRequestHeader("Connection", "keep-alive");
-			xmlhttp.setRequestHeader("Cache-Control", "max-age=0");
+			xmlhttp.open("POST", url, true);
+			xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+			xmlhttp.setRequestHeader("Content-length", params.length);
+			xmlhttp.setRequestHeader("Connection", "close");
 			
 			xmlhttp.send(params);
 			
-			/*
-			$.ajax({
-				url: url,
-				data: data,
-				cache: false,
-				contentType: false,
-				processData: false,
-				isLocal: false,
-				crossDomain: true,
-				type: 'POST',
-				complete: function(xhr){
-	//				alert(xhr.status);
-				}
-			}).done(function(data, statusText, xhr){
-				//alert(xhr.status);
-			});
-			*/
 		}
 		
 		//CREATE WORKSPACE
@@ -694,25 +670,88 @@ var SemanticGraphApp = (function (){
 		tools.dragOverCanvas = function(event){
 			event.preventDefault();
 		}
+		var draggedNode;
+		tools.getIntAtr = function(node, atr){
+			var value = node.getAttribute(atr);
+			if(value == undefined || value == null){
+				return 0;
+			}
+			value = parseInt(value);
+			if(isNaN(value)){
+				return 0;
+			} 
+			return value;
+		}
+		tools.getInt = function(value){
+			if(value == undefined || value == null){
+				return 0;
+			}
+			value = parseInt(value);
+			if(isNaN(value)){
+				return 0;
+			} 
+			return value;
+		}
 		tools.dropOnCanvas = function(event){
 			event.preventDefault();
-			var id=event.dataTransfer.getData("Text");
-			var a = tools.findById(id);
-			if(a){
-				a.src;
-				context.currentGraphData;
-				//TODO: start from here 
-				
-				var content  = a.xml.firstChild.children;
-				for(var ii = 0; ii < content.length; ii++){
-					var child = tools.parseXml(content[ii].outerHTML);	
-					context.currentGraphData.xml = tools.parseXml(context.currentGraphData.src, true);
-					context.currentGraphData.xml.firstChild.appendChild(child.firstChild);
-					context.currentGraphData.src = context.currentGraphData.xml.firstChild.outerHTML;
+			//TODO: dragg
+			var dragS = event.dataTransfer.getData("innerDrag");
+			if(dragS){
+				var drag = JSON.parse( dragS);
+				var dX = event.clientX-drag.x;
+				var dY = event.clientY-drag.y;
+				var vv = draggedNode.getAttribute("x");
+				if((draggedNode.getAttribute("x")!=null && draggedNode.getAttribute("x")!=undefined) || (draggedNode.getAttribute("y")!=null && draggedNode.getAttribute("x")!=undefined)){
+					draggedNode.setAttribute("x", tools.getIntAtr(draggedNode,"x")+dX);
+					draggedNode.setAttribute("y", tools.getIntAtr(draggedNode,"y")+dY);
+				} else if((draggedNode.getAttribute("cx")!=null && draggedNode.getAttribute("cx")!=undefined) || (draggedNode.getAttribute("cy")!=null && draggedNode.getAttribute("cy")!=undefined)){
+					draggedNode.setAttribute("cx", tools.getIntAtr(draggedNode,"cx")+dX);
+					draggedNode.setAttribute("cy", tools.getIntAtr(draggedNode,"cy")+dY);
+				} else if(draggedNode.getAttribute("points")!=null && draggedNode.getAttribute("points")!=undefined){
+					var pointsList = draggedNode.getAttribute("points").split(" ");
+					var merge = "";
+					for(var i=0; i<pointsList.length;i++){
+						var point = pointsList[i].split(",");
+						var x = tools.getInt(point[0])+dX;
+						var y = tools.getInt(point[1])+dY;
+						merge += x+","+y+" ";
+					}
+					merge = merge.substr(0,merge.length-1);
+					draggedNode.setAttribute("points", merge);
+				} else {
+					draggedNode.setAttribute("x", tools.getIntAtr(draggedNode,"x")+dX);
+					draggedNode.setAttribute("y", tools.getIntAtr(draggedNode,"y")+dY);				
 				}
+				var root = draggedNode;
+				while(root.parentNode){
+					root = root.parentNode;
+					if(root.nodeName=="svg"){
+						break;
+					}
+				}
+				context.currentGraphData.src = root.outerHTML;
+				context.currentGraphData.xml = tools.parseXml(context.currentGraphData.src);
 				context.drawGraph(context.currentGraphData);
+				
+			} else {
+				var id=event.dataTransfer.getData("Text");
+				if(id){
+					var a = tools.findById(id);
+					if(a){
+						a.src;
+						context.currentGraphData;
+						
+						var content  = a.xml.firstChild.children;
+						for(var ii = 0; ii < content.length; ii++){
+							var child = tools.parseXml(content[ii].outerHTML);	
+							context.currentGraphData.xml = tools.parseXml(context.currentGraphData.src, true);
+							context.currentGraphData.xml.firstChild.appendChild(child.firstChild);
+							context.currentGraphData.src = context.currentGraphData.xml.firstChild.outerHTML;
+						}
+						context.drawGraph(context.currentGraphData);
+					}
+				}
 			}
-			
 			
 		}
 		var modifieNode;
@@ -722,6 +761,11 @@ var SemanticGraphApp = (function (){
 				for(var i=0;i<children.length;i++){
 					digDeeper(children[i].children);
 					var oldFunc = children[i].onclick;
+					//children[i].setAttribute("draggable","true");
+					children[i].ondragstart = function(event){
+						draggedNode = event.target;
+						event.dataTransfer.setData("innerDrag",JSON.stringify({x: event.clientX, y: event.clientY}));
+					}
 					children[i].onclick = function (event){
 						if( typeof  oldFunc == "function"){
 							oldFunc(event);
