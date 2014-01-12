@@ -1169,6 +1169,56 @@ var SemanticGraphApp = (function (){
 		
 		var currentlySelected = null;
 		var currentlyFound = new Array();
+		
+		$('#registerSubmit').click(function(){
+			var isBlank = function(v){
+				if(v === null || v === undefined || v.trim() === ""){
+					return false;
+				}
+				return true;
+			}
+			var form = $('#registerModal form');
+			var email = form[0][0].value==undefined?null:form[0][0].value;
+			var pass = form[0][1].value==undefined?null:form[0][1].value;
+			var passRp = form[0][2].value==undefined?null:form[0][2].value;
+			if(!isBlank(email) || !isBlank(pass) || !isBlank(passRp)){	
+				alert("Invalid input");					
+			} else {
+				if(pass === passRp){
+					$.post( "register.php", {email: email, pass: pass, passRp: passRp}, function( data ) {
+						if(data.success=="true"){
+							alert("Thank you for registration. You can login now");
+						} else {
+							alert("Error. "+data.error);						
+						}
+					});				
+				} else {
+					alert("Password dont match");		
+				}
+			}
+		});
+		$('#loginSubmit').click(function(){
+			var isBlank = function(v){
+				if(v === null || v === undefined || v.trim() === ""){
+					return false;
+				}
+				return true;
+			}
+			var form = $('#loginModal form');
+			var email = form[0][0].value==undefined?null:form[0][0].value;
+			var pass = form[0][1].value==undefined?null:form[0][1].value;
+			if(!isBlank(email) || !isBlank(pass)){	
+				alert("Invalid input");					
+			} else {
+				$.post( "login.php", {email: email, pass: pass}, function( data ) {
+					if(data.success=="true"){
+						alert("Thank you for login.");
+					} else {
+						alert("Error. "+data.error);						
+					}
+				});		
+			}
+		});
 	}
 	return loader;
 })();
