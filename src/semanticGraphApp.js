@@ -977,46 +977,113 @@ var SemanticGraphApp = (function (){
 		
 		var storageControl = {};
 		storageControl.load = function(){
-			
-			for(props in localStorage){
-				var graphPM = /^graph[0-9]+$/g;
-				var nodePM = /^node[0-9]+$/g;
-				var edgePM = /^edge[0-9]+$/g;
-				if(graphPM.test(props)){
-					var graph;
-					try{
-						graph = eval("localStorage."+props);
-						graph.xml = tools.parseXml(graph);
-						graphs.push(eval('('+graph+')'));
-					}catch(e){
-						alert();
+		
+			var loadLocal = function(){
+				for(props in localStorage){
+					var graphPM = /^graph[0-9]+$/g;
+					var nodePM = /^node[0-9]+$/g;
+					var edgePM = /^edge[0-9]+$/g;
+					if(graphPM.test(props)){
+						var graph;
+						try{
+							graph = eval("localStorage."+props);
+							graph.xml = tools.parseXml(graph);
+							graphs.push(eval('('+graph+')'));
+						}catch(e){
+							alert();
+						}
 					}
-				}
-				if(nodePM.test(props)){
-					var graph;
-					try{
-						graph = eval("localStorage."+props);
-						graph.xml = tools.parseXml(graph);
-						nodes.push(eval('('+graph+')'));
-					}catch(e){
-						alert();
+					if(nodePM.test(props)){
+						var graph;
+						try{
+							graph = eval("localStorage."+props);
+							graph.xml = tools.parseXml(graph);
+							nodes.push(eval('('+graph+')'));
+						}catch(e){
+							alert();
+						}
 					}
-				}
-				if(edgePM.test(props)){
-					var graph;
-					try{
-						graph = eval("localStorage."+props);
-						graph.xml = tools.parseXml(graph);
-						edges.push(eval('('+graph+')'));
-					}catch(e){
-						alert();
+					if(edgePM.test(props)){
+						var graph;
+						try{
+							graph = eval("localStorage."+props);
+							graph.xml = tools.parseXml(graph);
+							edges.push(eval('('+graph+')'));
+						}catch(e){
+							alert();
+						}
 					}
-				}
 
-			}		
-			edges.drawAll();
-			nodes.drawAll();
-			graphs.drawAllListItems();
+				}		
+				edges.drawAll();
+				nodes.drawAll();
+				graphs.drawAllListItems();			
+			};
+			var loadRemote = function(remoteData){
+				for(props in remoteData.graphs){
+						var graph;
+						try{
+							graph = remoteData.graphs[props];
+							graph.xml = tools.parseXml(graph.src);
+							graphs.push(graph);
+						}catch(e){
+							alert();
+						}
+				}
+				for(props in remoteData.nodes){
+						var graph;
+						try{
+							graph = remoteData.nodes[props];
+							graph.xml = tools.parseXml(graph.src);
+							nodes.push(graph);
+						}catch(e){
+							alert();
+						}
+				}
+				for(props in remoteData.edges){
+						var graph;
+						try{
+							graph = remoteData.edges[props];
+							graph.xml = tools.parseXml(graph.src);
+							edges.push(graph);
+						}catch(e){
+							alert();
+						}
+				}	
+				edges.drawAll();
+				nodes.drawAll();
+				graphs.drawAllListItems();			
+			};
+			
+			if(authorisation.auth){
+				$.post('load.php', function(d){
+					if(d.success=="true"){						
+						if(localStorage.stamp!=undefined){
+							if(localStorage.stamp != d.stamp){
+								if(confirm("Concurrency modification! Load now?")){
+									$.post('load.php', {load:true}, function(data3){
+										var status = data3.state;
+										var parsedStatus = JSON.parse(status);
+										loadRemote(parsedStatus);
+									});
+								}
+							} else {
+								loadLocal();
+							}
+						}else {
+							$.post('load.php', {load:true}, function(data3){
+								var status = data3.state;
+								var parsedStatus = JSON.parse(status);
+								loadRemote(parsedStatus);
+							});
+						}
+					} else {
+						loadLocal();
+					}
+				});
+			}else {
+				loadLocal();
+			}
 		}
 		storageControl.clear = function(){
 			if(confirm("Do you realy whant to do that?")){
@@ -1041,9 +1108,27 @@ var SemanticGraphApp = (function (){
 				var stringNode = JSON.stringify(node);
 				eval('localStorage.node'+i+'=stringNode');
 			}	
-			alert("Done!");
+			var stamp = new Date().getTime();
+			localStorage.stamp=stamp;
+			
+			if(authorisation.auth){
+				var data = {
+					graphs: graphs,
+					edges: edges,
+					nodes: nodes,
+					stamp: stamp
+				};
+				$.post("save.php", {data: JSON.stringify(data), stamp: stamp}, function (d){
+					if(d.success=="true"){						
+						alert("Done!");
+					} else {
+						alert(d.error);
+					}
+				});
+			} else {
+				alert("Done!");
+			}
 		}
-		storageControl.load();
 		
 		//init workspace
 		var context;
@@ -1188,6 +1273,7 @@ var SemanticGraphApp = (function (){
 					$.post( "register.php", {email: email, pass: pass, passRp: passRp}, function( data ) {
 						if(data.success=="true"){
 							alert("Thank you for registration. You can login now");
+							storageControl.load();
 						} else {
 							alert("Error. "+data.error);						
 						}
@@ -1213,12 +1299,49 @@ var SemanticGraphApp = (function (){
 				$.post( "login.php", {email: email, pass: pass}, function( data ) {
 					if(data.success=="true"){
 						alert("Thank you for login.");
+						$('#loginModal').modal({show:false});
+						authorisation.user = email;
+						authorisation.check();
 					} else {
 						alert("Error. "+data.error);						
 					}
 				});		
 			}
 		});
+		$('#logoutSubmit').click(function(){
+			if(authorisation.auth == true){
+				$.post( "logout.php", {email: authorisation.user}, function( data ) {
+					if(data.success=="true"){
+						alert("Your log out...");
+						localStorage.clear();
+						location.reload();
+					} else {
+						alert("Error. "+data.error);						
+					}
+				});		
+			
+			}
+		});
+		var authorisation = {};
+		authorisation.user = null;
+		authorisation.auth = false;
+		authorisation.check = function(){
+			$.post( "auth.php", function( data ) {
+				if(data.success=="true"){
+					authorisation.user=data.user;
+					$("#logoutButton").html(data.user);
+					$("#logoutButton").show();
+					$('#loginButton').hide();
+					authorisation.auth = true;
+				} else {
+					$('#loginButton').show();
+					$("#logoutButton").hide();
+					authorisation.auth = false;
+				}
+				storageControl.load();
+			});
+		}
+		authorisation.check();
 	}
 	return loader;
 })();

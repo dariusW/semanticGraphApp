@@ -42,7 +42,12 @@
         </div>
         <div class="collapse navbar-collapse">
           <ul class="nav navbar-nav navbar-right">
-			<li><a data-toggle="modal" data-target="#loginModal" onclick="$('#loginModal').modal('toggle')">Sing In</a></li>
+			<li>
+				<a data-toggle="modal" data-target="#loginModal" onclick="$('#loginModal').modal('toggle')" id="loginButton" >Sing In</a>
+				
+				<a data-toggle="modal" data-target="#logoutModal" id="logoutButton" style="display:none" ></a>
+				
+			</li>
           </ul>
         </div><!--/.nav-collapse -->
       </div>
@@ -220,6 +225,22 @@
 	  </div><!-- /.modal-dialog -->
 	</div><!-- /.modal -->
 	
+	<div class="modal fade" id="logoutModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+	  <div class="modal-dialog">
+		<div class="modal-content">
+		  <div class="modal-header">
+			<button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+			<h4 class="modal-title" id="myModalLabel">Logout</h4>
+		  </div>
+		  <div class="modal-body">
+		  </div>
+		  <div class="modal-footer">
+			<button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+			<button type="button" id="logoutSubmit" class="btn btn-primary">Logout</button>
+		  </div>
+		</div><!-- /.modal-content -->
+	  </div><!-- /.modal-dialog -->
+	</div><!-- /.modal -->
 	
 
     <!-- Bootstrap core JavaScript

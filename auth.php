@@ -1,0 +1,1 @@
+<?phprequire_once("init.php");global $db;header('Content-type: application/json');	if(isset($_SESSION['user'])){		echo '{"success":"true", "user": "'.$_SESSION['user'].'"}';	} else {				echo '{"success":"false", "user": ""}';		}	  require_once("dist.php");?>
