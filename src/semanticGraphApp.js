@@ -9,6 +9,7 @@ var SemanticGraphApp = (function (){
 			}
 		}
 		
+		
 		var addEventHandler = function(obj, evt, handler) {
 			if(obj.addEventListener) {
 				obj.addEventListener(evt, handler, false);
@@ -20,6 +21,13 @@ var SemanticGraphApp = (function (){
 		}
 		
 		var tools = {};
+		tools.loadingStart = function() {
+			$('#loadingModal').modal('show');
+		}
+		tools.loadingStart();
+		tools.loadingStop = function() {
+			$('#loadingModal').modal('hide');
+		}
 		tools.appendSimpleBox = function(parent, headerLabel){
 			box = document.createElement("div");
 			box.style.width = "100%";
@@ -632,14 +640,21 @@ var SemanticGraphApp = (function (){
 		tools.draw = function(item, box,callback){
 			var div = document.createElement("div");
 			div.className = "item_pic";
-			var iid = tools.idGen();
-			div.setAttribute("id", iid);
-			var i = document.createElement("img");
+			var iid = item.id==undefined?tools.idGen():item.id;
+			div.setAttribute("id", iid);//TODO:
+			//var i = document.createElement("img");
+			var i = document.createElement("object"); 
+			if(item.xml == undefined || item.xml.firstElementChild == undefined){
+				item.xml = tools.parseXml(item.src);
+			}
+			i.appendChild(item.xml.firstElementChild);
+			i.type = "image/svg+xml";
 			i.setAttribute("id", iid);
-			item.id = iid;
+			i.id = iid;
 			i.src = item.bin;
 			i.style.width="60px";
 			i.width=60;	
+			i.style.overflow="hidden";
 			div.appendChild(i);	
 			
 			div.onclick = function(){
@@ -665,7 +680,7 @@ var SemanticGraphApp = (function (){
 			
 		}
 		tools.dragToCanvas = function(event){
-			event.dataTransfer.setData("Text",event.target.id);
+			event.dataTransfer.setData("Text",event.target.id+"");
 		}	
 		tools.dragOverCanvas = function(event){
 			event.preventDefault();
@@ -1017,9 +1032,12 @@ var SemanticGraphApp = (function (){
 				}		
 				edges.drawAll();
 				nodes.drawAll();
-				graphs.drawAllListItems();			
+				graphs.drawAllListItems();		
+
+				tools.loadingStop();				
 			};
 			var loadRemote = function(remoteData){
+				if(remoteData!=null){
 				for(props in remoteData.graphs){
 						var graph;
 						try{
@@ -1052,7 +1070,9 @@ var SemanticGraphApp = (function (){
 				}	
 				edges.drawAll();
 				nodes.drawAll();
-				graphs.drawAllListItems();			
+				graphs.drawAllListItems();	
+				}
+				tools.loadingStop();
 			};
 			
 			if(authorisation.auth){
@@ -1092,6 +1112,7 @@ var SemanticGraphApp = (function (){
 			}
 		}
 		storageControl.save = function(){
+			tools.loadingStart();
 			localStorage.clear();
 			for(var i=0; i<graphs.length; i++){
 				var graph = graphs[i];
@@ -1119,14 +1140,15 @@ var SemanticGraphApp = (function (){
 					stamp: stamp
 				};
 				$.post("save.php", {data: JSON.stringify(data), stamp: stamp}, function (d){
-					if(d.success=="true"){						
-						alert("Done!");
+					if(d.success=="true"){		
+						tools.loadingStop();	
 					} else {
-						alert(d.error);
+						tools.loadingStop();
 					}
 				});
 			} else {
-				alert("Done!");
+				
+				tools.loadingStop();
 			}
 		}
 		
@@ -1256,6 +1278,7 @@ var SemanticGraphApp = (function (){
 		var currentlyFound = new Array();
 		
 		$('#registerSubmit').click(function(){
+			tools.loadingStart();
 			var isBlank = function(v){
 				if(v === null || v === undefined || v.trim() === ""){
 					return false;
@@ -1270,20 +1293,23 @@ var SemanticGraphApp = (function (){
 				alert("Invalid input");					
 			} else {
 				if(pass === passRp){
-					$.post( "register.php", {email: email, pass: pass, passRp: passRp}, function( data ) {
-						if(data.success=="true"){
-							alert("Thank you for registration. You can login now");
-							storageControl.load();
+					$.post( "register.php", {email: email, pass: pass, passRp: passRp}, function( d ) {
+						if(d.success=="true"){
+							$('#registerModal').modal('hide');
+							tools.loadingStop();	
 						} else {
-							alert("Error. "+data.error);						
+							tools.loadingStop();	
+							alert("Error. "+d.error);					
 						}
 					});				
 				} else {
+					tools.loadingStop();
 					alert("Password dont match");		
 				}
 			}
 		});
 		$('#loginSubmit').click(function(){
+			tools.loadingStart();
 			var isBlank = function(v){
 				if(v === null || v === undefined || v.trim() === ""){
 					return false;
@@ -1294,30 +1320,32 @@ var SemanticGraphApp = (function (){
 			var email = form[0][0].value==undefined?null:form[0][0].value;
 			var pass = form[0][1].value==undefined?null:form[0][1].value;
 			if(!isBlank(email) || !isBlank(pass)){	
+				tools.loadingStop();		
 				alert("Invalid input");					
 			} else {
 				$.post( "login.php", {email: email, pass: pass}, function( data ) {
-					if(data.success=="true"){
-						alert("Thank you for login.");
-						$('#loginModal').modal({show:false});
+					if(data.success=="true"){	
+						$('#loginModal').modal('hide');
 						authorisation.user = email;
 						authorisation.check();
 					} else {
-						alert("Error. "+data.error);						
+						tools.loadingStop();		
+						alert("Error. "+data.error);				
 					}
 				});		
 			}
 		});
 		$('#logoutSubmit').click(function(){
 			if(authorisation.auth == true){
+				tools.loadingStart();
 				$.post( "logout.php", {email: authorisation.user}, function( data ) {
-					if(data.success=="true"){
-						alert("Your log out...");
+					//if(data.success=="true"){
 						localStorage.clear();
 						location.reload();
-					} else {
-						alert("Error. "+data.error);						
-					}
+					//} else {
+					//	tools.loadingStop();	
+					//	alert("Error. "+data.error);						
+					//}
 				});		
 			
 			}
@@ -1342,6 +1370,24 @@ var SemanticGraphApp = (function (){
 			});
 		}
 		authorisation.check();
+		
+		
+		$("#newGraphB").click(function(){
+			var newGraphContent = "<svg xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\"><rect width=\"800\" height=\"600\" fill=\"transparent\"/><text x=\"10\" y=\"10\" fill=\"grey\">NEW...</text></svg>";
+			var newGraph = {
+				alert: false,
+				bin: null,
+				display: {},
+				id: tools.idGen(),
+				name: "New",
+				src: newGraphContent,
+				threshold: 0.8,
+				xml: tools.parseXml(newGraphContent)
+			}
+			graphs.push(newGraph);
+			graphs.draw(newGraph);
+			graphs.drawListItem(newGraph);
+		});
 	}
 	return loader;
 })();
